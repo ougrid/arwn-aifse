@@ -8,10 +8,12 @@ from sklearn.ensemble import GradientBoostingRegressor
 
 from src.config import (
     CSAT_TARGET,
+    DAYS_IN_APRIL,
     MAX_WAIT_SECONDS,
-    TOTAL_SENIORS,
-    TOTAL_JUNIORS,
     TOTAL_ENGLISH,
+    TOTAL_JUNIORS,
+    TOTAL_LEAVE_DAYS_PER_AGENT,
+    TOTAL_SENIORS,
 )
 
 QUALITY_FEATURES = ["ticket_volume", "senior_staffed", "junior_staffed", "english_staffed"]
@@ -224,4 +226,35 @@ def compute_staffing_requirements(
             **staffing,
         })
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+
+    # Post-process: ensure daily totals per category don't exceed available pool
+    # Account for leave: each agent has 6 leave days in 30 days → ~80% availability
+    # Use conservative estimate: pool_size - ceil(pool_size * leave_rate) - 1 buffer
+    leave_rate = TOTAL_LEAVE_DAYS_PER_AGENT / DAYS_IN_APRIL
+    avail_english = max(1, int(TOTAL_ENGLISH * (1 - leave_rate)) - 1)  # ~5
+    avail_senior = max(1, int(TOTAL_SENIORS * (1 - leave_rate)))       # ~8
+    avail_junior = max(1, int(TOTAL_JUNIORS * (1 - leave_rate)))       # ~32
+
+    for date in df["date"].unique():
+        mask = df["date"] == date
+        day_df = df[mask]
+
+        # Cap each category's daily total to available pool
+        for col, avail in [("english", avail_english), ("senior", avail_senior)]:
+            total = day_df[col].sum()
+            if total > avail:
+                # Scale down proportionally, prioritizing higher-volume shifts
+                sorted_idx = day_df.sort_values("predicted_volume", ascending=True).index
+                excess = total - avail
+                for idx in sorted_idx:
+                    if excess <= 0:
+                        break
+                    reduce = min(df.loc[idx, col], excess)
+                    df.loc[idx, col] -= reduce
+                    excess -= reduce
+
+    # Recalculate total
+    df["total"] = df["senior"] + df["junior"]
+
+    return df
