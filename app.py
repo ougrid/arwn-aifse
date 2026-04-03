@@ -8,6 +8,7 @@ from plotly.subplots import make_subplots
 
 from main import run_pipeline
 from src.config import SHIFTS, SHIFT_IDS, CSAT_TARGET, MAX_WAIT_SECONDS
+from src.scheduling.preferences import PREF_STRONGLY_PREFER, PREF_PREFER, PREF_NEUTRAL, PREF_AVOID, PREF_STRONGLY_AVOID
 
 st.set_page_config(
     page_title="CS Shift Scheduler",
@@ -70,7 +71,9 @@ def main():
 
     # --- Top-level KPIs ---
     qs = results["quality_summary"]
-    col1, col2, col3, col4, col5 = st.columns(5)
+    fairness = results.get("fairness", {})
+    pref = results.get("preference_summary", {})
+    col1, col2, col3, col4, col5, col6, col7 = st.columns(7)
     col1.metric(
         "Avg CSAT",
         f"{qs['avg_projected_csat']:.2f}",
@@ -84,15 +87,26 @@ def main():
     col3.metric("Targets Met", f"{qs['shifts_both_targets_met']}/{qs['total_shifts']}")
     col4.metric("Errors", results["num_errors"])
     col5.metric("Solver", f"{results['status']} ({results['solve_time']:.0f}s)")
+    col6.metric(
+        "Fairness",
+        fairness.get("fairness_grade", "N/A"),
+        delta=f"{fairness.get('composite_score', 0)}/100",
+    )
+    col7.metric(
+        "Pref Match",
+        f"{pref.get('satisfaction_pct', 0)}%",
+    )
 
     # --- Tabs ---
-    tab_forecast, tab_schedule, tab_summary, tab_constraints, tab_agents = st.tabs(
+    tab_forecast, tab_schedule, tab_summary, tab_constraints, tab_agents, tab_fairness, tab_prefs = st.tabs(
         [
             "📈 Forecast",
             "📅 Schedule",
             "📊 Shift Summary",
             "✅ Constraints",
             "👥 Agents",
+            "⚖️ Fairness",
+            "💜 Preferences",
         ]
     )
 
@@ -115,6 +129,14 @@ def main():
     # === AGENTS TAB ===
     with tab_agents:
         _render_agents_tab(results)
+
+    # === FAIRNESS TAB ===
+    with tab_fairness:
+        _render_fairness_tab(results)
+
+    # === PREFERENCES TAB ===
+    with tab_prefs:
+        _render_preferences_tab(results)
 
 
 def _render_forecast_tab(results: dict):
@@ -353,6 +375,20 @@ def _render_constraints_tab(results: dict):
                 pd.DataFrame(violation_data), use_container_width=True, hide_index=True
             )
 
+    # Remediation suggestions
+    remediation = results.get("remediation", [])
+    if remediation:
+        st.subheader("🔧 Remediation Suggestions")
+        for r in remediation:
+            severity_icon = "🔴" if r["severity"] == "error" else "🟡"
+            with st.expander(
+                f"{severity_icon} {r['constraint']} — {r['count']} occurrence(s)"
+            ):
+                st.markdown(f"**Severity:** {r['severity'].upper()}")
+                st.markdown(f"**Affected Days:** {r['affected_days']}")
+                st.markdown(f"**Example:** {r['sample']}")
+                st.info(f"💡 **Suggestion:** {r['remediation']}")
+
 
 def _render_agents_tab(results: dict):
     """Render per-agent summary."""
@@ -405,6 +441,151 @@ def _render_agents_tab(results: dict):
     # Table
     with st.expander("View agent details"):
         st.dataframe(agent_sum, use_container_width=True, hide_index=True)
+
+
+def _render_fairness_tab(results: dict):
+    """Render fairness metrics and equity analysis."""
+    st.subheader("⚖️ Fairness & Equity Analysis")
+
+    fairness = results.get("fairness", {})
+    if not fairness:
+        st.info("No fairness metrics available.")
+        return
+
+    # Grade display
+    grade = fairness["fairness_grade"]
+    composite = fairness["composite_score"]
+    grade_colors = {"A": "green", "B": "blue", "C": "orange", "D": "red", "F": "red"}
+    color = grade_colors.get(grade, "gray")
+    st.markdown(
+        f"### Overall Fairness Grade: "
+        f"<span style='color:{color}; font-size:2em; font-weight:bold'>{grade}</span> "
+        f"<span style='color:gray'>({composite}/100)</span>",
+        unsafe_allow_html=True,
+    )
+
+    # Metric details
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Night Shift Gini", fairness["night_shift_gini"], help="0 = perfect equality, 1 = max inequality")
+    col2.metric("Workload Gini", fairness["workload_gini"])
+    col3.metric("Shift Entropy", f"{fairness['shift_entropy_avg']:.2f}/{fairness['shift_entropy_max']:.2f}")
+    col4.metric("Night Range", f"{fairness['night_shift_range'][0]}–{fairness['night_shift_range'][1]}")
+
+    # Night shift distribution
+    st.subheader("Night Shift Distribution")
+    agent_sum = results["agent_summary"]
+
+    col1, col2 = st.columns(2)
+    with col1:
+        fig = px.histogram(
+            agent_sum,
+            x="shift_4_count",
+            nbins=max(agent_sum["shift_4_count"].max(), 1),
+            title="Night Shifts per Agent",
+            labels={"shift_4_count": "Night Shifts Assigned", "count": "Number of Agents"},
+            color_discrete_sequence=["#9b59b6"],
+        )
+        fig.update_layout(height=350)
+        st.plotly_chart(fig, use_container_width=True)
+
+    with col2:
+        fig2 = px.box(
+            agent_sum,
+            y="working_days",
+            color="role_level",
+            title="Workload Distribution by Role",
+            labels={"working_days": "Working Days", "role_level": "Role"},
+            color_discrete_sequence=["#3498db", "#e67e22"],
+        )
+        fig2.update_layout(height=350)
+        st.plotly_chart(fig2, use_container_width=True)
+
+    # Explanation
+    st.caption(
+        "**Gini coefficient** measures inequality (0 = everyone gets the same, 1 = one person gets everything). "
+        "**Shift entropy** measures variety in assignments (higher = more varied, max = perfectly even distribution). "
+        "Night shift Gini is weighted by sparsity — when few night shifts exist relative to agents, "
+        "some inequality is mathematically inevitable."
+    )
+
+
+def _render_preferences_tab(results: dict):
+    """Render agent shift preference analysis."""
+    st.subheader("💜 Agent Shift Preferences")
+
+    preferences = results.get("preferences")
+    pref_summary = results.get("preference_summary", {})
+
+    if preferences is None or not pref_summary:
+        st.info("No preference data available.")
+        return
+
+    # Summary metrics
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Satisfaction", f"{pref_summary['satisfaction_pct']}%")
+    col2.metric("Avg Preference Score", pref_summary["overall_avg_preference"], help="1 = strongly prefer, 5 = strongly avoid")
+    col3.metric("Preferred Assignments", f"{pref_summary['preferred_assignments']}/{pref_summary['total_working_shifts']}")
+    col4.metric("Avoided Assignments", f"{pref_summary['avoided_assignments']}/{pref_summary['total_working_shifts']}")
+
+    # Preference matrix heatmap
+    st.subheader("Preference Matrix")
+    st.caption("1 = Strongly Prefer, 5 = Strongly Avoid")
+
+    pref_display = preferences.set_index("agent_id")[
+        ["shift_1_pref", "shift_2_pref", "shift_3_pref", "shift_4_pref"]
+    ].rename(columns={
+        "shift_1_pref": "Morning",
+        "shift_2_pref": "Afternoon",
+        "shift_3_pref": "Evening",
+        "shift_4_pref": "Night",
+    })
+
+    fig = px.imshow(
+        pref_display.values,
+        x=pref_display.columns.tolist(),
+        y=pref_display.index.tolist(),
+        color_continuous_scale="RdYlGn_r",  # Green=prefer(1), Red=avoid(5)
+        zmin=1, zmax=5,
+        title="Agent Shift Preferences (1=Prefer, 5=Avoid)",
+        labels={"color": "Preference"},
+        aspect="auto",
+    )
+    fig.update_layout(height=max(400, len(preferences) * 14))
+    st.plotly_chart(fig, use_container_width=True)
+
+    # Per-agent satisfaction
+    agent_details = pref_summary.get("agent_details")
+    if agent_details is not None and not agent_details.empty:
+        st.subheader("Per-Agent Satisfaction")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig2 = px.histogram(
+                agent_details,
+                x="avg_pref_score",
+                nbins=15,
+                title="Distribution of Avg Preference Scores (lower = happier)",
+                labels={"avg_pref_score": "Avg Preference Score", "count": "Agents"},
+                color_discrete_sequence=["#8e44ad"],
+            )
+            fig2.update_layout(height=350)
+            st.plotly_chart(fig2, use_container_width=True)
+
+        with col2:
+            fig3 = px.scatter(
+                agent_details,
+                x="preferred_days",
+                y="avoided_days",
+                hover_name="agent_id",
+                title="Preferred vs Avoided Days per Agent",
+                labels={"preferred_days": "Days on Preferred Shifts", "avoided_days": "Days on Avoided Shifts"},
+                color_discrete_sequence=["#2ecc71"],
+            )
+            fig3.update_layout(height=350)
+            st.plotly_chart(fig3, use_container_width=True)
+
+        with st.expander("View per-agent details"):
+            st.dataframe(agent_details, use_container_width=True, hide_index=True)
 
 
 if __name__ == "__main__":
