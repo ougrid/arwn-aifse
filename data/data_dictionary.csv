@@ -1,0 +1,17 @@
+Sheet,Column,Type,Description
+Agents,agent_id,string,Unique agent identifier (CS-001 to CS-050)
+Agents,name,string,Agent's display name
+Agents,role_level,enum,Senior or Junior
+Agents,is_english,boolean,True if agent can handle English queries
+Historical Performance,date,date,Calendar date (2025-10-01 to 2026-03-31)
+Historical Performance,shift,int (1-4),Shift number
+Historical Performance,shift_name,string,Morning / Afternoon / Evening / Night
+Historical Performance,ticket_volume,int,Total customer tickets handled during shift
+Historical Performance,senior_staffed,int,Number of Senior agents who worked the shift
+Historical Performance,junior_staffed,int,Number of Junior agents who worked the shift
+Historical Performance,english_staffed,int,Number of English-capable agents who worked the shift
+Historical Performance,avg_csat,float (1-5),Average customer satisfaction score for the shift. Target: >= 4.0
+Historical Performance,avg_wait_seconds,float,Average customer waiting time in seconds. Target: <= 60s
+Leave Requests,agent_id,string,References Agents sheet
+Leave Requests,leave_date,date,Requested leave date in April 2026
+Leave Requests,leave_type,enum,"pre_selected (agent-chosen). System will add: system_assigned, night_rest"
