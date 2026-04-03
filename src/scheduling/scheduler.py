@@ -31,6 +31,7 @@ class ScheduleResult:
 def build_and_solve(
     inputs: SchedulingInput,
     config: SchedulingConfig | None = None,
+    preferences: pd.DataFrame | None = None,
 ) -> ScheduleResult:
     """Build and solve the shift scheduling problem using CP-SAT.
 
@@ -180,6 +181,23 @@ def build_and_solve(
                 overstaffing = model.new_int_var(0, num_agents, f"over_{d}_{s}")
                 model.add(overstaffing >= total_assigned - total_req)
                 objective_terms.append(overstaffing * config.overstaffing_weight)
+
+    # Soft 4: Agent shift preferences — penalize non-preferred shift assignments
+    if config.preference_weight > 0 and preferences is not None:
+        # Pre-compute preference costs as dict for O(1) lookup
+        pref_costs = {}
+        for _, row in preferences.iterrows():
+            for s in SHIFT_IDS:
+                pref_costs[(row["agent_id"], s)] = row[f"shift_{s}_pref"] - 1
+
+        for a in agents:
+            for d in range(num_days):
+                for s in SHIFT_IDS:
+                    cost = pref_costs.get((a, s), 2)  # neutral default
+                    if cost > 0:
+                        objective_terms.append(
+                            work[a, d, s] * cost * config.preference_weight
+                        )
 
     # Set objective: minimize total penalty
     if objective_terms:

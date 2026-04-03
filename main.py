@@ -14,6 +14,8 @@ from src.evaluation.metrics import (
     build_shift_summary,
     overall_quality_summary,
 )
+from src.evaluation.fairness import compute_fairness_metrics
+from src.evaluation.remediation import build_remediation_report
 from src.forecasting.demand_model import train_volume_model, predict_april_volume
 from src.forecasting.staffing_optimizer import (
     compute_staffing_requirements,
@@ -21,6 +23,10 @@ from src.forecasting.staffing_optimizer import (
 )
 from src.scheduling.constraints import SchedulingInput, validate_schedule
 from src.scheduling.scheduler import build_and_solve, schedule_to_dataframe
+from src.scheduling.preferences import (
+    generate_shift_preferences,
+    preference_satisfaction_score,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -72,6 +78,9 @@ def run_pipeline(
     )
 
     # --- Shift Scheduling ---
+    logger.info("Generating agent shift preferences...")
+    preferences = generate_shift_preferences(data["agents"])
+
     logger.info("Building and solving shift schedule...")
     inputs = SchedulingInput(
         agents=data["agents"],
@@ -86,7 +95,7 @@ def run_pipeline(
         overstaffing_weight=1,
     )
 
-    schedule_result = build_and_solve(inputs, config)
+    schedule_result = build_and_solve(inputs, config, preferences=preferences)
     logger.info(
         f"Solver status: {schedule_result.status} ({schedule_result.solve_time:.1f}s)"
     )
@@ -120,6 +129,24 @@ def run_pipeline(
     constraint_report = build_constraint_report(violations)
     quality_summary = overall_quality_summary(shift_summary)
 
+    # Preference satisfaction
+    pref_summary = preference_satisfaction_score(schedule_result.schedule, preferences)
+    logger.info(
+        f"Preference satisfaction: {pref_summary['satisfaction_pct']}% "
+        f"(avg pref score: {pref_summary['overall_avg_preference']})"
+    )
+
+    # Fairness metrics
+    fairness = compute_fairness_metrics(agent_summary)
+    logger.info(
+        f"Fairness grade: {fairness['fairness_grade']} "
+        f"(night Gini: {fairness['night_shift_gini']}, "
+        f"composite: {fairness['composite_score']})"
+    )
+
+    # Remediation suggestions
+    remediation = build_remediation_report(violations)
+
     elapsed = time.time() - t_start
     logger.info(f"Pipeline complete in {elapsed:.1f}s")
 
@@ -146,11 +173,24 @@ def run_pipeline(
         "violations": violations,
         "num_errors": len(errors),
         "num_warnings": len(warnings),
+        "preferences": preferences,
+        "preference_summary": pref_summary,
+        "fairness": fairness,
+        "remediation": remediation,
     }
 
 
 def print_results(results: dict) -> None:
     """Print a summary of pipeline results to stdout."""
+    import sys
+    import io
+
+    # Handle Windows console encoding for emoji
+    if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+        sys.stdout = io.TextIOWrapper(
+            sys.stdout.buffer, encoding="utf-8", errors="replace"
+        )
+
     if "error" in results:
         print(f"\n❌ {results['error']}")
         return
@@ -208,6 +248,29 @@ def print_results(results: dict) -> None:
         f"  Min: {night_counts.min()}, Max: {night_counts.max()}, "
         f"Mean: {night_counts.mean():.1f}, Std: {night_counts.std():.1f}"
     )
+
+    # Fairness metrics
+    fairness = results["fairness"]
+    print(f"\n⚖️  Fairness Metrics:")
+    print(f"  Grade: {fairness['fairness_grade']} (composite: {fairness['composite_score']})")
+    print(f"  Night shift Gini: {fairness['night_shift_gini']} (0=perfect equality)")
+    print(f"  Workload Gini: {fairness['workload_gini']}")
+    print(f"  Shift entropy: {fairness['shift_entropy_avg']:.3f}/{fairness['shift_entropy_max']:.3f}")
+
+    # Preference satisfaction
+    pref = results["preference_summary"]
+    print(f"\n💜 Shift Preference Satisfaction:")
+    print(f"  Overall: {pref['satisfaction_pct']}%")
+    print(f"  Preferred assignments: {pref['preferred_assignments']}/{pref['total_working_shifts']}")
+    print(f"  Avoided assignments: {pref['avoided_assignments']}/{pref['total_working_shifts']}")
+
+    # Remediation suggestions
+    remediation = results.get("remediation", [])
+    if remediation:
+        print(f"\n🔧 Remediation Suggestions:")
+        for r in remediation:
+            print(f"  [{r['severity'].upper()}] {r['constraint']} ({r['count']}x):")
+            print(f"    → {r['remediation']}")
 
 
 def main():

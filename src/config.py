@@ -54,6 +54,7 @@ class SchedulingConfig:
     shift_continuity_weight: int = 3
     night_fairness_weight: int = 5
     overstaffing_weight: int = 1
+    preference_weight: int = 1  # weight for agent shift preference soft constraint
 
     # Shift transition penalty matrix (from_shift → to_shift)
     # Penalize large jumps; 0 = same shift, higher = worse
