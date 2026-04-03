@@ -32,15 +32,23 @@ def load_agents(path: Path = AGENTS_PATH) -> pd.DataFrame:
     return df
 
 
-def load_historical_performance(path: Path = HISTORICAL_PERFORMANCE_PATH) -> pd.DataFrame:
+def load_historical_performance(
+    path: Path = HISTORICAL_PERFORMANCE_PATH,
+) -> pd.DataFrame:
     """Load historical shift performance data."""
     df = pd.read_csv(path, parse_dates=["date"])
 
     # Validate columns
     required = [
-        "date", "shift", "shift_name", "ticket_volume",
-        "senior_staffed", "junior_staffed", "english_staffed",
-        "avg_csat", "avg_wait_seconds",
+        "date",
+        "shift",
+        "shift_name",
+        "ticket_volume",
+        "senior_staffed",
+        "junior_staffed",
+        "english_staffed",
+        "avg_csat",
+        "avg_wait_seconds",
     ]
     missing = set(required) - set(df.columns)
     assert not missing, f"Missing columns: {missing}"
@@ -64,7 +72,9 @@ def load_leave_requests(path: Path = LEAVE_REQUESTS_PATH) -> pd.DataFrame:
     pre_selected = df[df["leave_type"] == "pre_selected"]
     counts = pre_selected.groupby("agent_id").size()
     bad = counts[counts != PRE_SELECTED_LEAVE_DAYS]
-    assert bad.empty, f"Agents without exactly {PRE_SELECTED_LEAVE_DAYS} pre-selected leaves: {bad.to_dict()}"
+    assert (
+        bad.empty
+    ), f"Agents without exactly {PRE_SELECTED_LEAVE_DAYS} pre-selected leaves: {bad.to_dict()}"
 
     return df
 

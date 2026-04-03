@@ -44,26 +44,26 @@ class TestLeaveConstraints:
         df = pipeline_results["schedule_df"]
         for aid, grp in df.groupby("agent_id"):
             leave_count = (grp["assignment"] == "leave").sum()
-            assert leave_count == TOTAL_LEAVE_DAYS_PER_AGENT, (
-                f"{aid}: {leave_count} leave days, expected {TOTAL_LEAVE_DAYS_PER_AGENT}"
-            )
+            assert (
+                leave_count == TOTAL_LEAVE_DAYS_PER_AGENT
+            ), f"{aid}: {leave_count} leave days, expected {TOTAL_LEAVE_DAYS_PER_AGENT}"
 
     def test_pre_selected_leaves_honored(self, pipeline_results):
         df = pipeline_results["schedule_df"]
         agents = pipeline_results["agents"]
         from src.data_loader import load_all_data
+
         data = load_all_data()
         leave_req = data["leave_requests"]
 
         for _, row in leave_req.iterrows():
             agent_sched = df[
-                (df["agent_id"] == row["agent_id"]) &
-                (df["date"] == row["leave_date"])
+                (df["agent_id"] == row["agent_id"]) & (df["date"] == row["leave_date"])
             ]
             assert len(agent_sched) == 1
-            assert agent_sched.iloc[0]["assignment"] == "leave", (
-                f"{row['agent_id']} not on leave on {row['leave_date']}"
-            )
+            assert (
+                agent_sched.iloc[0]["assignment"] == "leave"
+            ), f"{row['agent_id']} not on leave on {row['leave_date']}"
 
 
 class TestNightShiftRest:

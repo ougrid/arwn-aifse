@@ -69,9 +69,7 @@ def build_and_solve(
     # C1: Each agent has exactly one assignment per day (one shift or leave)
     for a in agents:
         for d in range(num_days):
-            model.add_exactly_one(
-                [work[a, d, s] for s in SHIFT_IDS] + [leave[a, d]]
-            )
+            model.add_exactly_one([work[a, d, s] for s in SHIFT_IDS] + [leave[a, d]])
 
     # C2: Total leave days = 6 per agent
     for a in agents:
@@ -126,12 +124,12 @@ def build_and_solve(
         max_daily_req += max_req
 
     daily_leave_cap = max(6, num_agents - max_daily_req)
-    logger.info(f"Daily leave cap: {daily_leave_cap} (max daily requirement: {max_daily_req})")
+    logger.info(
+        f"Daily leave cap: {daily_leave_cap} (max daily requirement: {max_daily_req})"
+    )
 
     for d in range(num_days):
-        model.add(
-            sum(leave[a, d] for a in agents) <= daily_leave_cap
-        )
+        model.add(sum(leave[a, d] for a in agents) <= daily_leave_cap)
 
     # --- Soft Constraints (Objective) ---
     objective_terms = []
@@ -146,9 +144,15 @@ def build_and_solve(
                         if penalty > 0:
                             # Both[a,d,s1] and work[a,d+1,s2] are true
                             both = model.new_bool_var(f"trans_{a}_{d}_{s1}_{s2}")
-                            model.add_bool_and([work[a, d, s1], work[a, d + 1, s2]]).only_enforce_if(both)
-                            model.add_bool_or([work[a, d, s1].negated(), work[a, d + 1, s2].negated()]).only_enforce_if(both.negated())
-                            objective_terms.append(both * penalty * config.shift_continuity_weight)
+                            model.add_bool_and(
+                                [work[a, d, s1], work[a, d + 1, s2]]
+                            ).only_enforce_if(both)
+                            model.add_bool_or(
+                                [work[a, d, s1].negated(), work[a, d + 1, s2].negated()]
+                            ).only_enforce_if(both.negated())
+                            objective_terms.append(
+                                both * penalty * config.shift_continuity_weight
+                            )
 
     # Soft 2: Night shift fairness — minimize max night shifts across agents
     if config.night_fairness_weight > 0:
@@ -187,7 +191,9 @@ def build_and_solve(
     solver.parameters.num_workers = 4
     solver.parameters.log_search_progress = False
 
-    logger.info(f"Solving scheduling problem: {num_agents} agents × {num_days} days × {len(SHIFT_IDS)} shifts")
+    logger.info(
+        f"Solving scheduling problem: {num_agents} agents × {num_days} days × {len(SHIFT_IDS)} shifts"
+    )
 
     status = solver.solve(model)
 
@@ -232,17 +238,21 @@ def build_and_solve(
     )
 
 
-def schedule_to_dataframe(result: ScheduleResult, year: int = 2026, month: int = 4) -> pd.DataFrame:
+def schedule_to_dataframe(
+    result: ScheduleResult, year: int = 2026, month: int = 4
+) -> pd.DataFrame:
     """Convert schedule dict to a DataFrame in the required output format."""
     rows = []
     for agent_id, assignments in result.schedule.items():
         for d, assignment in enumerate(assignments):
             date = pd.Timestamp(year=year, month=month, day=d + 1)
-            rows.append({
-                "date": date,
-                "agent_id": agent_id,
-                "assignment": assignment,
-            })
+            rows.append(
+                {
+                    "date": date,
+                    "agent_id": agent_id,
+                    "assignment": assignment,
+                }
+            )
 
     df = pd.DataFrame(rows)
     df = df.sort_values(["date", "agent_id"]).reset_index(drop=True)

@@ -9,7 +9,13 @@ from src.forecasting.staffing_optimizer import (
     train_quality_models,
     compute_staffing_requirements,
 )
-from src.config import TOTAL_SENIORS, TOTAL_JUNIORS, TOTAL_ENGLISH, DAYS_IN_APRIL, SHIFT_IDS
+from src.config import (
+    TOTAL_SENIORS,
+    TOTAL_JUNIORS,
+    TOTAL_ENGLISH,
+    DAYS_IN_APRIL,
+    SHIFT_IDS,
+)
 
 
 @pytest.fixture(scope="module")
@@ -83,9 +89,9 @@ class TestStaffingRequirements:
         """Daily English total should not exceed available pool (accounting for leave)."""
         for date in staffing_req["date"].unique():
             day = staffing_req[staffing_req["date"] == date]
-            assert day["english"].sum() <= TOTAL_ENGLISH, (
-                f"English demand {day['english'].sum()} exceeds pool {TOTAL_ENGLISH} on {date}"
-            )
+            assert (
+                day["english"].sum() <= TOTAL_ENGLISH
+            ), f"English demand {day['english'].sum()} exceeds pool {TOTAL_ENGLISH} on {date}"
 
     def test_senior_within_pool(self, staffing_req):
         for date in staffing_req["date"].unique():

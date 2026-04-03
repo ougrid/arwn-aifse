@@ -33,8 +33,14 @@ class TestDataIntegrity:
 
     def test_historical_has_quality_columns(self, data):
         hist = data["historical"]
-        for col in ["avg_csat", "avg_wait_seconds", "ticket_volume",
-                     "senior_staffed", "junior_staffed", "english_staffed"]:
+        for col in [
+            "avg_csat",
+            "avg_wait_seconds",
+            "ticket_volume",
+            "senior_staffed",
+            "junior_staffed",
+            "english_staffed",
+        ]:
             assert col in hist.columns
 
     def test_leave_requests_count(self, data):

@@ -64,8 +64,11 @@ def run_pipeline(
 
     logger.info("Computing staffing requirements...")
     staffing_req = compute_staffing_requirements(
-        volume_predictions, quality_models, data["historical"],
-        csat_target=csat_target, max_wait=max_wait,
+        volume_predictions,
+        quality_models,
+        data["historical"],
+        csat_target=csat_target,
+        max_wait=max_wait,
     )
 
     # --- Shift Scheduling ---
@@ -84,7 +87,9 @@ def run_pipeline(
     )
 
     schedule_result = build_and_solve(inputs, config)
-    logger.info(f"Solver status: {schedule_result.status} ({schedule_result.solve_time:.1f}s)")
+    logger.info(
+        f"Solver status: {schedule_result.status} ({schedule_result.solve_time:.1f}s)"
+    )
 
     if not schedule_result.schedule:
         logger.error("Scheduling failed — no feasible solution found.")
@@ -106,7 +111,10 @@ def run_pipeline(
     # --- Evaluation ---
     logger.info("Building evaluation summaries...")
     shift_summary = build_shift_summary(
-        schedule_df, data["agents"], staffing_req, quality_models,
+        schedule_df,
+        data["agents"],
+        staffing_req,
+        quality_models,
     )
     agent_summary = build_agent_summary(schedule_df, data["agents"])
     constraint_report = build_constraint_report(violations)
@@ -159,7 +167,9 @@ def print_results(results: dict) -> None:
     print(f"  Avg projected wait:  {qs['avg_projected_wait']}s (target ≤ 60s)")
     print(f"  Max projected wait:  {qs['max_projected_wait']}s")
     print(f"  Shifts meeting wait: {qs['pct_wait_met']}%")
-    print(f"  Both targets met:    {qs['shifts_both_targets_met']}/{qs['total_shifts']} shifts")
+    print(
+        f"  Both targets met:    {qs['shifts_both_targets_met']}/{qs['total_shifts']} shifts"
+    )
 
     print(f"\n🔍 Constraint Validation:")
     print(f"  Hard constraint errors: {results['num_errors']}")
@@ -194,8 +204,10 @@ def print_results(results: dict) -> None:
     agent_sum = results["agent_summary"]
     print(f"\n🌙 Night Shift Distribution:")
     night_counts = agent_sum["shift_4_count"]
-    print(f"  Min: {night_counts.min()}, Max: {night_counts.max()}, "
-          f"Mean: {night_counts.mean():.1f}, Std: {night_counts.std():.1f}")
+    print(
+        f"  Min: {night_counts.min()}, Max: {night_counts.max()}, "
+        f"Mean: {night_counts.mean():.1f}, Std: {night_counts.std():.1f}"
+    )
 
 
 def main():

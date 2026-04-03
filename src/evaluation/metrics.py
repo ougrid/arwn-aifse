@@ -39,8 +39,8 @@ def build_shift_summary(
 
             # Get requirements
             req_row = staffing_requirements[
-                (staffing_requirements["date"] == date) &
-                (staffing_requirements["shift"] == shift)
+                (staffing_requirements["date"] == date)
+                & (staffing_requirements["shift"] == shift)
             ]
             if not req_row.empty:
                 req = req_row.iloc[0]
@@ -56,23 +56,25 @@ def build_shift_summary(
                 quality_models, volume, senior_count, junior_count, english_count
             )
 
-            rows.append({
-                "date": date,
-                "shift": shift,
-                "shift_name": SHIFTS[shift]["name"],
-                "senior_assigned": senior_count,
-                "junior_assigned": junior_count,
-                "english_assigned": english_count,
-                "total_assigned": len(assigned_set),
-                "senior_required": sr_req,
-                "junior_required": jr_req,
-                "english_required": eng_req,
-                "predicted_volume": volume,
-                "projected_csat": round(csat, 2),
-                "projected_wait": round(wait, 1),
-                "csat_meets_target": csat >= CSAT_TARGET,
-                "wait_meets_target": wait <= MAX_WAIT_SECONDS,
-            })
+            rows.append(
+                {
+                    "date": date,
+                    "shift": shift,
+                    "shift_name": SHIFTS[shift]["name"],
+                    "senior_assigned": senior_count,
+                    "junior_assigned": junior_count,
+                    "english_assigned": english_count,
+                    "total_assigned": len(assigned_set),
+                    "senior_required": sr_req,
+                    "junior_required": jr_req,
+                    "english_required": eng_req,
+                    "predicted_volume": volume,
+                    "projected_csat": round(csat, 2),
+                    "projected_wait": round(wait, 1),
+                    "csat_meets_target": csat >= CSAT_TARGET,
+                    "wait_meets_target": wait <= MAX_WAIT_SECONDS,
+                }
+            )
 
     return pd.DataFrame(rows)
 
@@ -95,15 +97,17 @@ def build_agent_summary(
 
         leave_count = len(agent_sched[agent_sched["assignment"] == "leave"])
 
-        rows.append({
-            "agent_id": aid,
-            "name": agent["name"],
-            "role_level": agent["role_level"],
-            "is_english": agent["is_english"],
-            **shift_counts,
-            "leave_count": leave_count,
-            "working_days": 30 - leave_count,
-        })
+        rows.append(
+            {
+                "agent_id": aid,
+                "name": agent["name"],
+                "role_level": agent["role_level"],
+                "is_english": agent["is_english"],
+                **shift_counts,
+                "leave_count": leave_count,
+                "working_days": 30 - leave_count,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -111,22 +115,27 @@ def build_agent_summary(
 def build_constraint_report(violations: list) -> pd.DataFrame:
     """Convert violation list to a summary DataFrame."""
     if not violations:
-        return pd.DataFrame(columns=["constraint", "severity", "count", "sample_details"])
+        return pd.DataFrame(
+            columns=["constraint", "severity", "count", "sample_details"]
+        )
 
     records = []
     from collections import Counter
+
     by_type = {}
     for v in violations:
         key = (v.constraint_name, v.severity)
         by_type.setdefault(key, []).append(v.details)
 
     for (name, severity), details in sorted(by_type.items()):
-        records.append({
-            "constraint": name,
-            "severity": severity,
-            "count": len(details),
-            "sample_details": details[0] if details else "",
-        })
+        records.append(
+            {
+                "constraint": name,
+                "severity": severity,
+                "count": len(details),
+                "sample_details": details[0] if details else "",
+            }
+        )
 
     return pd.DataFrame(records)
 
@@ -136,16 +145,14 @@ def overall_quality_summary(shift_summary: pd.DataFrame) -> dict:
     return {
         "avg_projected_csat": round(shift_summary["projected_csat"].mean(), 2),
         "min_projected_csat": round(shift_summary["projected_csat"].min(), 2),
-        "pct_csat_met": round(
-            shift_summary["csat_meets_target"].mean() * 100, 1
-        ),
+        "pct_csat_met": round(shift_summary["csat_meets_target"].mean() * 100, 1),
         "avg_projected_wait": round(shift_summary["projected_wait"].mean(), 1),
         "max_projected_wait": round(shift_summary["projected_wait"].max(), 1),
-        "pct_wait_met": round(
-            shift_summary["wait_meets_target"].mean() * 100, 1
-        ),
+        "pct_wait_met": round(shift_summary["wait_meets_target"].mean() * 100, 1),
         "total_shifts": len(shift_summary),
         "shifts_both_targets_met": int(
-            (shift_summary["csat_meets_target"] & shift_summary["wait_meets_target"]).sum()
+            (
+                shift_summary["csat_meets_target"] & shift_summary["wait_meets_target"]
+            ).sum()
         ),
     }

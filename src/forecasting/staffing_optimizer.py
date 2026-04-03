@@ -16,7 +16,12 @@ from src.config import (
     TOTAL_SENIORS,
 )
 
-QUALITY_FEATURES = ["ticket_volume", "senior_staffed", "junior_staffed", "english_staffed"]
+QUALITY_FEATURES = [
+    "ticket_volume",
+    "senior_staffed",
+    "junior_staffed",
+    "english_staffed",
+]
 
 
 @dataclass
@@ -35,16 +40,24 @@ def train_quality_models(historical: pd.DataFrame) -> QualityModels:
 
     # CSAT model
     csat_model = GradientBoostingRegressor(
-        n_estimators=200, max_depth=4, learning_rate=0.1,
-        subsample=0.8, min_samples_leaf=5, random_state=42,
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.1,
+        subsample=0.8,
+        min_samples_leaf=5,
+        random_state=42,
     )
     csat_model.fit(X, historical["avg_csat"])
     csat_r2 = csat_model.score(X, historical["avg_csat"])
 
     # Wait time model
     wait_model = GradientBoostingRegressor(
-        n_estimators=200, max_depth=4, learning_rate=0.1,
-        subsample=0.8, min_samples_leaf=5, random_state=42,
+        n_estimators=200,
+        max_depth=4,
+        learning_rate=0.1,
+        subsample=0.8,
+        min_samples_leaf=5,
+        random_state=42,
     )
     wait_model.fit(X, historical["avg_wait_seconds"])
     wait_r2 = wait_model.score(X, historical["avg_wait_seconds"])
@@ -105,8 +118,8 @@ def compute_shift_floors(historical: pd.DataFrame) -> dict[int, dict]:
         shift_data = historical[historical["shift"] == shift]
         # Use shifts where targets were met, or all if too few met targets
         good = shift_data[
-            (shift_data["avg_csat"] >= CSAT_TARGET) &
-            (shift_data["avg_wait_seconds"] <= MAX_WAIT_SECONDS)
+            (shift_data["avg_csat"] >= CSAT_TARGET)
+            & (shift_data["avg_wait_seconds"] <= MAX_WAIT_SECONDS)
         ]
         if len(good) < 10:
             good = shift_data
@@ -151,12 +164,14 @@ def find_minimum_staffing_batch(
     for volume, shift_id in zip(volumes, shifts):
         grid = grids_by_shift[shift_id]
         # Build feature matrix: [volume, senior, junior, english] for all combos
-        X = pd.DataFrame({
-            "ticket_volume": volume,
-            "senior_staffed": grid[:, 0],
-            "junior_staffed": grid[:, 1],
-            "english_staffed": grid[:, 2],
-        })
+        X = pd.DataFrame(
+            {
+                "ticket_volume": volume,
+                "senior_staffed": grid[:, 0],
+                "junior_staffed": grid[:, 1],
+                "english_staffed": grid[:, 2],
+            }
+        )
 
         csat_preds = quality_models.csat_model.predict(X)
         wait_preds = quality_models.wait_model.predict(X)
@@ -175,28 +190,32 @@ def find_minimum_staffing_batch(
             # Among min-total options, pick lowest wait
             best_i = min_total_idx[np.argmin(wait_preds[min_total_idx])]
 
-            results.append({
-                "senior": int(grid[best_i, 0]),
-                "junior": int(grid[best_i, 1]),
-                "english": int(grid[best_i, 2]),
-                "total": int(totals[best_i]),
-                "predicted_csat": round(float(csat_preds[best_i]), 2),
-                "predicted_wait": round(float(wait_preds[best_i]), 1),
-                "targets_met": True,
-            })
+            results.append(
+                {
+                    "senior": int(grid[best_i, 0]),
+                    "junior": int(grid[best_i, 1]),
+                    "english": int(grid[best_i, 2]),
+                    "total": int(totals[best_i]),
+                    "predicted_csat": round(float(csat_preds[best_i]), 2),
+                    "predicted_wait": round(float(wait_preds[best_i]), 1),
+                    "targets_met": True,
+                }
+            )
         else:
             # Best effort: highest composite score
             scores = csat_preds * 10 - wait_preds * 0.1 - totals * 0.5
             best_i = np.argmax(scores)
-            results.append({
-                "senior": int(grid[best_i, 0]),
-                "junior": int(grid[best_i, 1]),
-                "english": int(grid[best_i, 2]),
-                "total": int(totals[best_i]),
-                "predicted_csat": round(float(csat_preds[best_i]), 2),
-                "predicted_wait": round(float(wait_preds[best_i]), 1),
-                "targets_met": False,
-            })
+            results.append(
+                {
+                    "senior": int(grid[best_i, 0]),
+                    "junior": int(grid[best_i, 1]),
+                    "english": int(grid[best_i, 2]),
+                    "total": int(totals[best_i]),
+                    "predicted_csat": round(float(csat_preds[best_i]), 2),
+                    "predicted_wait": round(float(wait_preds[best_i]), 1),
+                    "targets_met": False,
+                }
+            )
 
     return results
 
@@ -219,12 +238,14 @@ def compute_staffing_requirements(
 
     rows = []
     for (_, vol_row), staffing in zip(volume_predictions.iterrows(), staffing_list):
-        rows.append({
-            "date": vol_row["date"],
-            "shift": int(vol_row["shift"]),
-            "predicted_volume": int(vol_row["predicted_volume"]),
-            **staffing,
-        })
+        rows.append(
+            {
+                "date": vol_row["date"],
+                "shift": int(vol_row["shift"]),
+                "predicted_volume": int(vol_row["predicted_volume"]),
+                **staffing,
+            }
+        )
 
     df = pd.DataFrame(rows)
 
@@ -233,8 +254,8 @@ def compute_staffing_requirements(
     # Use conservative estimate: pool_size - ceil(pool_size * leave_rate) - 1 buffer
     leave_rate = TOTAL_LEAVE_DAYS_PER_AGENT / DAYS_IN_APRIL
     avail_english = max(1, int(TOTAL_ENGLISH * (1 - leave_rate)) - 1)  # ~5
-    avail_senior = max(1, int(TOTAL_SENIORS * (1 - leave_rate)))       # ~8
-    avail_junior = max(1, int(TOTAL_JUNIORS * (1 - leave_rate)))       # ~32
+    avail_senior = max(1, int(TOTAL_SENIORS * (1 - leave_rate)))  # ~8
+    avail_junior = max(1, int(TOTAL_JUNIORS * (1 - leave_rate)))  # ~32
 
     for date in df["date"].unique():
         mask = df["date"] == date
@@ -245,7 +266,9 @@ def compute_staffing_requirements(
             total = day_df[col].sum()
             if total > avail:
                 # Scale down proportionally, prioritizing higher-volume shifts
-                sorted_idx = day_df.sort_values("predicted_volume", ascending=True).index
+                sorted_idx = day_df.sort_values(
+                    "predicted_volume", ascending=True
+                ).index
                 excess = total - avail
                 for idx in sorted_idx:
                     if excess <= 0:
