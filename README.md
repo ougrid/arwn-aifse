@@ -6,8 +6,11 @@ A production-ready tool for Customer Service shift scheduling that predicts staf
 
 - **Demand Forecasting**: Gradient Boosting model predicts ticket volume per shift, then determines minimum staffing (Senior/Junior/English) to meet CSAT ≥ 4.0 and wait time ≤ 60s targets
 - **Shift Scheduling**: Google OR-Tools CP-SAT solver assigns 50 agents to 4 shifts across 30 days, respecting all business constraints
-- **Interactive Dashboard**: Streamlit UI with 5 tabs — Forecast, Schedule, Shift Summary, Constraints, Agents — with adjustable parameters and CSV export
-- **Constraint Validation**: Full validation of hard constraints (leave, night rest, staffing) and soft constraints (shift continuity, night shift fairness)
+- **Interactive Dashboard**: Streamlit UI with 7 tabs — Forecast, Schedule, Shift Summary, Constraints, Agents, Fairness, Preferences — with adjustable parameters and CSV export
+- **Constraint Validation**: Full validation of hard constraints (leave, night rest, staffing) and soft constraints (shift continuity, night shift fairness), with actionable remediation suggestions
+- **Agent Shift Preferences**: Synthetic preference generation based on agent attributes (role, language), integrated as soft objective in the scheduler with satisfaction tracking
+- **Fairness Metrics**: Gini coefficient for night shift and workload equity, shift entropy for variety, composite fairness grade (A–F)
+- **Remediation Suggestions**: Actionable remediation for each constraint violation type, grouped by category in the dashboard
 
 ## Quick Start
 
@@ -56,7 +59,7 @@ pytest tests/ -v
 
 ```
 ├── main.py                         # CLI entry point — runs full pipeline
-├── app.py                          # Streamlit dashboard
+├── app.py                          # Streamlit dashboard (7 tabs)
 ├── src/
 │   ├── config.py                   # Business constants, shift definitions, solver config
 │   ├── data_loader.py              # Load agents, historical data, leave requests
@@ -66,13 +69,17 @@ pytest tests/ -v
 │   │   └── staffing_optimizer.py   # Quality models + minimum staffing solver
 │   ├── scheduling/
 │   │   ├── constraints.py          # Constraint definitions + validation
-│   │   └── scheduler.py            # CP-SAT shift assignment engine
+│   │   ├── scheduler.py            # CP-SAT shift assignment engine
+│   │   └── preferences.py          # Agent shift preference generation & scoring
 │   └── evaluation/
-│       └── metrics.py              # Shift/agent summaries, quality projections
+│       ├── metrics.py              # Shift/agent summaries, quality projections
+│       ├── fairness.py             # Gini coefficient, fairness grading
+│       └── remediation.py          # Actionable remediation suggestions
 ├── tests/
 │   ├── test_data.py                # Data integrity tests
 │   ├── test_forecasting.py         # Forecasting pipeline tests
-│   └── test_scheduling.py         # Schedule constraint tests
+│   ├── test_scheduling.py          # Schedule constraint tests
+│   └── test_bonus.py               # Preferences, fairness, remediation tests
 └── data/                           # Input data files
 ```
 
@@ -107,8 +114,17 @@ pytest tests/ -v
 **Soft Constraints (Objective):**
 - Night shift fairness: minimize variance in night shifts across agents (weight=5)
 - Overstaffing penalty: minimize excess beyond minimum requirements (weight=1)
+- Agent shift preferences: minimize assignments to disliked shifts (weight=1)
 
-**Results:** OPTIMAL solution, 0 hard constraint errors, ~37s total pipeline time
+**Results:** FEASIBLE solution, 0 hard constraint errors, ~71s total pipeline time
+
+### Bonus Features
+
+**Agent Shift Preferences:** Generates realistic synthetic preferences (1=strongly prefer, 5=strongly avoid) based on agent role, language capability, and individual variation. Integrated as a soft constraint in the CP-SAT objective. Typical satisfaction: ~82%.
+
+**Fairness Metrics:** Gini coefficient measures equality in night shift distribution and overall workload. Shift entropy measures variety of shift types per agent. Composite score (0-100) with letter grade (A-F). Night shift Gini is weighted by sparsity — with ~80 night slots across 50 agents, some inequality is mathematically inevitable.
+
+**Constraint Remediation:** Each constraint violation is mapped to an actionable suggestion (e.g., "move a senior agent from a lower-demand shift" for staffing shortfalls). Violations are grouped by type in the dashboard with expandable remediation details.
 
 ## Key Assumptions
 
