@@ -252,17 +252,25 @@ def print_results(results: dict) -> None:
     # Fairness metrics
     fairness = results["fairness"]
     print(f"\n⚖️  Fairness Metrics:")
-    print(f"  Grade: {fairness['fairness_grade']} (composite: {fairness['composite_score']})")
+    print(
+        f"  Grade: {fairness['fairness_grade']} (composite: {fairness['composite_score']})"
+    )
     print(f"  Night shift Gini: {fairness['night_shift_gini']} (0=perfect equality)")
     print(f"  Workload Gini: {fairness['workload_gini']}")
-    print(f"  Shift entropy: {fairness['shift_entropy_avg']:.3f}/{fairness['shift_entropy_max']:.3f}")
+    print(
+        f"  Shift entropy: {fairness['shift_entropy_avg']:.3f}/{fairness['shift_entropy_max']:.3f}"
+    )
 
     # Preference satisfaction
     pref = results["preference_summary"]
     print(f"\n💜 Shift Preference Satisfaction:")
     print(f"  Overall: {pref['satisfaction_pct']}%")
-    print(f"  Preferred assignments: {pref['preferred_assignments']}/{pref['total_working_shifts']}")
-    print(f"  Avoided assignments: {pref['avoided_assignments']}/{pref['total_working_shifts']}")
+    print(
+        f"  Preferred assignments: {pref['preferred_assignments']}/{pref['total_working_shifts']}"
+    )
+    print(
+        f"  Avoided assignments: {pref['avoided_assignments']}/{pref['total_working_shifts']}"
+    )
 
     # Remediation suggestions
     remediation = results.get("remediation", [])

@@ -48,7 +48,9 @@ def generate_remediation(violation: ConstraintViolation) -> str:
         ),
     }
 
-    return remediations.get(name, "Review the constraint and adjust staffing or leave assignments.")
+    return remediations.get(
+        name, "Review the constraint and adjust staffing or leave assignments."
+    )
 
 
 def build_remediation_report(
@@ -79,13 +81,15 @@ def build_remediation_report(
         if len(days) > 10:
             days_str += f" ... ({len(days)} total)"
 
-        report.append({
-            "constraint": name,
-            "severity": "error" if errors else "warning",
-            "count": len(group),
-            "affected_days": days_str if days else "N/A",
-            "sample": sample.details,
-            "remediation": generate_remediation(sample),
-        })
+        report.append(
+            {
+                "constraint": name,
+                "severity": "error" if errors else "warning",
+                "count": len(group),
+                "affected_days": days_str if days else "N/A",
+                "sample": sample.details,
+                "remediation": generate_remediation(sample),
+            }
+        )
 
     return report

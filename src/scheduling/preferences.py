@@ -65,12 +65,16 @@ def generate_shift_preferences(
         prefs = {}
         for s in SHIFT_IDS:
             val = base[s] + rng.normal(0, 0.3)
-            prefs[f"shift_{s}_pref"] = int(np.clip(round(val), PREF_STRONGLY_PREFER, PREF_STRONGLY_AVOID))
+            prefs[f"shift_{s}_pref"] = int(
+                np.clip(round(val), PREF_STRONGLY_PREFER, PREF_STRONGLY_AVOID)
+            )
 
-        rows.append({
-            "agent_id": agent["agent_id"],
-            **prefs,
-        })
+        rows.append(
+            {
+                "agent_id": agent["agent_id"],
+                **prefs,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -99,8 +103,13 @@ def preference_satisfaction_score(
         per-agent scores, and breakdown by preference level.
     """
     agent_scores = []
-    pref_match_counts = {PREF_STRONGLY_PREFER: 0, PREF_PREFER: 0, PREF_NEUTRAL: 0,
-                         PREF_AVOID: 0, PREF_STRONGLY_AVOID: 0}
+    pref_match_counts = {
+        PREF_STRONGLY_PREFER: 0,
+        PREF_PREFER: 0,
+        PREF_NEUTRAL: 0,
+        PREF_AVOID: 0,
+        PREF_STRONGLY_AVOID: 0,
+    }
     total_working = 0
 
     for agent_id, assignments in schedule.items():
@@ -119,13 +128,19 @@ def preference_satisfaction_score(
                 total_working += 1
 
         if agent_pref_scores:
-            agent_scores.append({
-                "agent_id": agent_id,
-                "avg_pref_score": round(np.mean(agent_pref_scores), 2),
-                "working_days": len(agent_pref_scores),
-                "preferred_days": sum(1 for p in agent_pref_scores if p <= PREF_PREFER),
-                "avoided_days": sum(1 for p in agent_pref_scores if p >= PREF_AVOID),
-            })
+            agent_scores.append(
+                {
+                    "agent_id": agent_id,
+                    "avg_pref_score": round(np.mean(agent_pref_scores), 2),
+                    "working_days": len(agent_pref_scores),
+                    "preferred_days": sum(
+                        1 for p in agent_pref_scores if p <= PREF_PREFER
+                    ),
+                    "avoided_days": sum(
+                        1 for p in agent_pref_scores if p >= PREF_AVOID
+                    ),
+                }
+            )
 
     agent_df = pd.DataFrame(agent_scores)
     overall_avg = agent_df["avg_pref_score"].mean() if not agent_df.empty else 3.0
@@ -137,7 +152,9 @@ def preference_satisfaction_score(
         "overall_avg_preference": round(overall_avg, 2),
         "satisfaction_pct": satisfaction_pct,
         "total_working_shifts": total_working,
-        "preferred_assignments": pref_match_counts.get(PREF_STRONGLY_PREFER, 0) + pref_match_counts.get(PREF_PREFER, 0),
-        "avoided_assignments": pref_match_counts.get(PREF_AVOID, 0) + pref_match_counts.get(PREF_STRONGLY_AVOID, 0),
+        "preferred_assignments": pref_match_counts.get(PREF_STRONGLY_PREFER, 0)
+        + pref_match_counts.get(PREF_PREFER, 0),
+        "avoided_assignments": pref_match_counts.get(PREF_AVOID, 0)
+        + pref_match_counts.get(PREF_STRONGLY_AVOID, 0),
         "agent_details": agent_df,
     }

@@ -20,7 +20,9 @@ def gini_coefficient(values: np.ndarray) -> float:
     if n == 0 or values.sum() == 0:
         return 0.0
     index = np.arange(1, n + 1)
-    return float((2 * np.sum(index * values) - (n + 1) * np.sum(values)) / (n * np.sum(values)))
+    return float(
+        (2 * np.sum(index * values) - (n + 1) * np.sum(values)) / (n * np.sum(values))
+    )
 
 
 def compute_fairness_metrics(
@@ -69,7 +71,9 @@ def compute_fairness_metrics(
     # With ~80 night slots / 50 agents, perfect distribution is 1-2 per agent → natural Gini
     expected_night_per_agent = night_mean
     max_possible_nights = 30  # theoretical max
-    sparsity_factor = min(1.0, expected_night_per_agent / 4)  # normalize: 4+ nights/agent → full weight
+    sparsity_factor = min(
+        1.0, expected_night_per_agent / 4
+    )  # normalize: 4+ nights/agent → full weight
     night_score = max(0, 100 * (1 - night_gini * sparsity_factor * 2))
     workload_score = max(0, 100 * (1 - workload_gini * 5))  # Gini 0.2 → score 0
     entropy_score = 100 * (avg_entropy / max_entropy) if max_entropy > 0 else 50

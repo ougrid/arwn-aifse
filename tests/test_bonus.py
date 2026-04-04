@@ -225,7 +225,9 @@ class TestRemediation:
 
     def test_build_report_groups_by_type(self):
         violations = [
-            ConstraintViolation("shift_continuity", day=d, severity="warning", details=f"Day {d}")
+            ConstraintViolation(
+                "shift_continuity", day=d, severity="warning", details=f"Day {d}"
+            )
             for d in range(5)
         ]
         report = build_remediation_report(violations)
@@ -235,9 +237,15 @@ class TestRemediation:
 
     def test_build_report_multiple_types(self):
         violations = [
-            ConstraintViolation("shift_continuity", day=0, severity="warning", details="..."),
-            ConstraintViolation("min_senior_staffing", day=1, severity="error", details="..."),
-            ConstraintViolation("shift_continuity", day=2, severity="warning", details="..."),
+            ConstraintViolation(
+                "shift_continuity", day=0, severity="warning", details="..."
+            ),
+            ConstraintViolation(
+                "min_senior_staffing", day=1, severity="error", details="..."
+            ),
+            ConstraintViolation(
+                "shift_continuity", day=2, severity="warning", details="..."
+            ),
         ]
         report = build_remediation_report(violations)
         assert len(report) == 2
@@ -246,7 +254,9 @@ class TestRemediation:
 
     def test_report_has_remediation_field(self):
         violations = [
-            ConstraintViolation("night_rest", day=3, severity="error", details="Not resting"),
+            ConstraintViolation(
+                "night_rest", day=3, severity="error", details="Not resting"
+            ),
         ]
         report = build_remediation_report(violations)
         assert len(report) == 1
@@ -263,6 +273,7 @@ class TestBonusIntegration:
     @pytest.fixture(scope="class")
     def pipeline_results(self):
         from main import run_pipeline
+
         return run_pipeline(solver_time_limit=60)
 
     def test_preferences_in_results(self, pipeline_results):
