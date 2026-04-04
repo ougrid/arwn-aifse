@@ -8,7 +8,13 @@ from plotly.subplots import make_subplots
 
 from main import run_pipeline
 from src.config import SHIFTS, SHIFT_IDS, CSAT_TARGET, MAX_WAIT_SECONDS
-from src.scheduling.preferences import PREF_STRONGLY_PREFER, PREF_PREFER, PREF_NEUTRAL, PREF_AVOID, PREF_STRONGLY_AVOID
+from src.scheduling.preferences import (
+    PREF_STRONGLY_PREFER,
+    PREF_PREFER,
+    PREF_NEUTRAL,
+    PREF_AVOID,
+    PREF_STRONGLY_AVOID,
+)
 
 st.set_page_config(
     page_title="CS Shift Scheduler",
@@ -98,7 +104,15 @@ def main():
     )
 
     # --- Tabs ---
-    tab_forecast, tab_schedule, tab_summary, tab_constraints, tab_agents, tab_fairness, tab_prefs = st.tabs(
+    (
+        tab_forecast,
+        tab_schedule,
+        tab_summary,
+        tab_constraints,
+        tab_agents,
+        tab_fairness,
+        tab_prefs,
+    ) = st.tabs(
         [
             "📈 Forecast",
             "📅 Schedule",
@@ -466,10 +480,20 @@ def _render_fairness_tab(results: dict):
 
     # Metric details
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Night Shift Gini", fairness["night_shift_gini"], help="0 = perfect equality, 1 = max inequality")
+    col1.metric(
+        "Night Shift Gini",
+        fairness["night_shift_gini"],
+        help="0 = perfect equality, 1 = max inequality",
+    )
     col2.metric("Workload Gini", fairness["workload_gini"])
-    col3.metric("Shift Entropy", f"{fairness['shift_entropy_avg']:.2f}/{fairness['shift_entropy_max']:.2f}")
-    col4.metric("Night Range", f"{fairness['night_shift_range'][0]}–{fairness['night_shift_range'][1]}")
+    col3.metric(
+        "Shift Entropy",
+        f"{fairness['shift_entropy_avg']:.2f}/{fairness['shift_entropy_max']:.2f}",
+    )
+    col4.metric(
+        "Night Range",
+        f"{fairness['night_shift_range'][0]}–{fairness['night_shift_range'][1]}",
+    )
 
     # Night shift distribution
     st.subheader("Night Shift Distribution")
@@ -480,9 +504,12 @@ def _render_fairness_tab(results: dict):
         fig = px.histogram(
             agent_sum,
             x="shift_4_count",
-            nbins=max(agent_sum["shift_4_count"].max(), 1),
+            nbins=int(max(agent_sum["shift_4_count"].max(), 1)),
             title="Night Shifts per Agent",
-            labels={"shift_4_count": "Night Shifts Assigned", "count": "Number of Agents"},
+            labels={
+                "shift_4_count": "Night Shifts Assigned",
+                "count": "Number of Agents",
+            },
             color_discrete_sequence=["#9b59b6"],
         )
         fig.update_layout(height=350)
@@ -523,9 +550,19 @@ def _render_preferences_tab(results: dict):
     # Summary metrics
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("Satisfaction", f"{pref_summary['satisfaction_pct']}%")
-    col2.metric("Avg Preference Score", pref_summary["overall_avg_preference"], help="1 = strongly prefer, 5 = strongly avoid")
-    col3.metric("Preferred Assignments", f"{pref_summary['preferred_assignments']}/{pref_summary['total_working_shifts']}")
-    col4.metric("Avoided Assignments", f"{pref_summary['avoided_assignments']}/{pref_summary['total_working_shifts']}")
+    col2.metric(
+        "Avg Preference Score",
+        pref_summary["overall_avg_preference"],
+        help="1 = strongly prefer, 5 = strongly avoid",
+    )
+    col3.metric(
+        "Preferred Assignments",
+        f"{pref_summary['preferred_assignments']}/{pref_summary['total_working_shifts']}",
+    )
+    col4.metric(
+        "Avoided Assignments",
+        f"{pref_summary['avoided_assignments']}/{pref_summary['total_working_shifts']}",
+    )
 
     # Preference matrix heatmap
     st.subheader("Preference Matrix")
@@ -533,19 +570,22 @@ def _render_preferences_tab(results: dict):
 
     pref_display = preferences.set_index("agent_id")[
         ["shift_1_pref", "shift_2_pref", "shift_3_pref", "shift_4_pref"]
-    ].rename(columns={
-        "shift_1_pref": "Morning",
-        "shift_2_pref": "Afternoon",
-        "shift_3_pref": "Evening",
-        "shift_4_pref": "Night",
-    })
+    ].rename(
+        columns={
+            "shift_1_pref": "Morning",
+            "shift_2_pref": "Afternoon",
+            "shift_3_pref": "Evening",
+            "shift_4_pref": "Night",
+        }
+    )
 
     fig = px.imshow(
         pref_display.values,
         x=pref_display.columns.tolist(),
         y=pref_display.index.tolist(),
         color_continuous_scale="RdYlGn_r",  # Green=prefer(1), Red=avoid(5)
-        zmin=1, zmax=5,
+        zmin=1,
+        zmax=5,
         title="Agent Shift Preferences (1=Prefer, 5=Avoid)",
         labels={"color": "Preference"},
         aspect="auto",
@@ -578,7 +618,10 @@ def _render_preferences_tab(results: dict):
                 y="avoided_days",
                 hover_name="agent_id",
                 title="Preferred vs Avoided Days per Agent",
-                labels={"preferred_days": "Days on Preferred Shifts", "avoided_days": "Days on Avoided Shifts"},
+                labels={
+                    "preferred_days": "Days on Preferred Shifts",
+                    "avoided_days": "Days on Avoided Shifts",
+                },
                 color_discrete_sequence=["#2ecc71"],
             )
             fig3.update_layout(height=350)
